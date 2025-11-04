@@ -11,7 +11,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 echo 'Clonando el repositorio...'
-                git branch: 'master', url: 'https://github.com/Cristopher8049/gorest.git'
+                git branch: 'main', url: 'https://github.com/Cristopher8049/gorest.git'
             }
         }
 
