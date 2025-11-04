@@ -1,9 +1,13 @@
 pipeline {
   agent any
 
+  environment {
+    PATH = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH}"
+  }
+
   tools {
-    maven 'maven39'   // usa EXACTAMENTE el nombre que configuraste en Tools
-    jdk   'jdk11'     // idem
+    maven 'maven39'
+    jdk 'jdk11'
   }
 
   options {
@@ -13,8 +17,6 @@ pipeline {
   }
 
   stages {
-
-    // Puedes borrar este stage y dejar el checkout declarativo si usas "Pipeline from SCM"
     stage('Checkout') {
       steps {
         echo 'Clonando el repositorio...'
@@ -22,18 +24,25 @@ pipeline {
       }
     }
 
+    stage('Sanity tools') {
+      steps {
+        sh 'java -version'
+        sh 'mvn -v'
+      }
+    }
+
     stage('Build & Test') {
       steps {
         withCredentials([
-          string(credentialsId: 'GOREST_URL',    variable: 'ENV_BASE_URL'),
+          string(credentialsId: 'GOREST_URL', variable: 'ENV_BASE_URL'),
           string(credentialsId: 'GOREST_BEARER', variable: 'ENV_BEARER_TOKEN')
         ]) {
           sh '''
-            echo "--- Creando archivo .env desde credenciales de Jenkins ---"
-            printf "BASE_URL=%s\n" "$ENV_BASE_URL"          > .env
+            echo "--- Creando archivo .env ---"
+            printf "BASE_URL=%s\n" "$ENV_BASE_URL" > .env
             printf "BEARER_TOKEN=%s\n" "$ENV_BEARER_TOKEN" >> .env
 
-            echo "--- .env creado. Ejecutando pruebas Karate... ---"
+            echo "--- Ejecutando pruebas Karate ---"
             mvn -B -DskipTests=false test
           '''
         }
