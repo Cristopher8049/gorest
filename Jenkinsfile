@@ -1,56 +1,69 @@
 pipeline {
-  agent any
-  tools { maven 'maven39' }   // usa el nombre exacto que pusiste
-  options { timestamps(); buildDiscarder(logRotator(numToKeepStr:'15')); timeout(time:30, unit:'MINUTES') }
+    agent any
 
-  stages {
-    stage('Checkout'){
-      steps {
-        // Si ya usas "Pipeline script from SCM", puedes omitir esta stage y dejar el checkout automático
-        git branch: 'main', url: 'https://github.com/Cristopher8049/gorest.git'
-      }
+    tools {
+        maven 'maven39' 
+        jdk 'jdk11'  
     }
 
-    stage('Sanity tools'){
-      steps {
-        sh 'java -version || true'
-        sh 'mvn -v || true'
-      }
-    }
+    stages {
 
-    stage('Build & Test (Karate)'){
-      steps {
-        withCredentials([
-          string(credentialsId:'GOREST_URL',    variable:'ENV_BASE_URL'),
-          string(credentialsId:'GOREST_BEARER', variable:'ENV_BEARER_TOKEN')
-        ]) {
-          sh '''
-            printf "BASE_URL=%s\n" "$ENV_BASE_URL"          > .env
-            printf "BEARER_TOKEN=%s\n" "$ENV_BEARER_TOKEN" >> .env
-            mvn -B -DskipTests=false test
-          '''
+        stage('Checkout') {
+            steps {
+                echo 'Clonando el repositorio...'
+                git branch: 'master', url: 'https://github.com/Cristopher8049/gorest.git'
+            }
         }
-      }
-      post {
+
+        stage('Build & Test') {
+            steps {
+
+                withCredentials([
+                    string(credentialsId: 'GOREST_URL', variable: 'ENV_BASE_URL'),
+                    string(credentialsId: 'GOREST_BEARER', variable: 'ENV_BEARER_TOKEN')
+                ]) {
+                    
+                    bat """
+                        echo "--- Creando archivo .env desde credenciales de Jenkins ---"
+                        
+                        rem Escribimos las variables de entorno (inyectadas por Jenkins) al archivo
+                        echo BASE_URL=%ENV_BASE_URL% > .env
+                        echo BEARER_TOKEN=%ENV_BEARER_TOKEN% >> .env
+                        
+                        echo "--- .env creado. Ejecutando pruebas Karate... ---"
+                        
+                        rem Tu comando original (ahora encontrará el .env)
+                        mvn test
+                    """
+                }
+            }
+        }
+
+        stage('Publicar Reporte') {
+            steps {
+                echo 'Publicando reporte HTML de Karate...'
+                publishHTML([
+                    allowMissing: false,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportDir: 'target/karate-reports',
+                    reportFiles: 'karate-summary.html',
+                    reportName: 'Reporte de Pruebas Karate'
+                ])
+            }
+        }
+    }
+
+    post {
         always {
-          junit allowEmptyResults:true, testResults:'**/surefire-reports/*.xml'
-          archiveArtifacts artifacts:'target/karate-reports/**', fingerprint:true
+            echo 'Pipeline finalizado — limpiando workspace.'
+            cleanWs()
         }
-      }
+        success {
+            echo 'Pruebas Karate ejecutadas con éxito.'
+        }
+        failure {
+            echo 'Falló alguna etapa del pipeline.'
+        }
     }
-
-    stage('Publicar Reporte'){
-      steps {
-        publishHTML([
-          allowMissing:false, alwaysLinkToLastBuild:true, keepAll:true,
-          reportDir:'target/karate-reports', reportFiles:'karate-summary.html',
-          reportName:'Reporte de Pruebas Karate'
-        ])
-      }
-    }
-  }
-
-  post {
-    always { echo "Estado: ${currentBuild.currentResult}"; cleanWs() }
-  }
 }
