@@ -1,0 +1,28 @@
+# Maven
+target/
+pom.xml.tag
+pom.xml.bak
+pom.xml.versionsBackup
+pom.xml.releaseBackup
+pom-*.xml
+cobertura.ser
+
+# IntelliJ/Eclipse/VSCode
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+.project
+.classpath
+.settings/
+
+# General
+.DS_Store
+*.log
+*.jar
+*.war
+*.zip
+*.rar
+!src/main/resources/
+.env
